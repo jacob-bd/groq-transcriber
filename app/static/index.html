@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Groq Transcriber</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,opsz,wght@0,9..40,400;0,9..40,500;0,9..40,600;0,9..40,700;1,9..40,400&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="page-bg" aria-hidden="true"></div>
+
+  <main class="container">
+    <header class="site-header">
+      <div class="brand">
+        <div class="brand-icon" aria-hidden="true">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/>
+            <path d="M19 10v2a7 7 0 0 1-14 0v-2"/>
+            <line x1="12" x2="12" y1="19" y2="22"/>
+          </svg>
+        </div>
+        <div>
+          <h1>Groq Transcriber</h1>
+          <p>Drop audio, get timestamped text. Powered by Whisper on Groq.</p>
+        </div>
+      </div>
+      <button type="button" id="theme-toggle" class="theme-toggle" aria-label="Toggle color theme">
+        <svg class="icon-sun" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/>
+        </svg>
+        <svg class="icon-moon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+        </svg>
+      </button>
+    </header>
+
+    <section class="card card-settings" id="settings-card">
+      <div class="card-header">
+        <h2>API key</h2>
+        <span id="key-status" class="badge badge-muted">Not configured</span>
+      </div>
+      <form id="settings-form">
+        <label for="api-key" class="sr-only">Groq API key</label>
+        <div class="row">
+          <input id="api-key" type="password" placeholder="gsk_..." autocomplete="off">
+          <button type="submit" class="btn btn-secondary">Save</button>
+        </div>
+        <p id="masked-key" class="hint"></p>
+      </form>
+    </section>
+
+    <section class="card card-hero" id="transcribe-card">
+      <div class="card-hero-head">
+        <h2>Transcribe</h2>
+      </div>
+
+      <form id="transcribe-form">
+        <div class="field-group">
+          <label for="model-select">Whisper model</label>
+          <select id="model-select" name="model" class="model-select"></select>
+          <p id="model-description" class="hint model-description"></p>
+        </div>
+
+        <div class="field-group">
+          <label for="detail-select">Timestamps detail</label>
+          <select id="detail-select" name="detail_level" class="model-select"></select>
+          <p id="detail-description" class="hint model-description"></p>
+        </div>
+
+        <label for="audio-file" class="sr-only">Audio file</label>
+        <div class="drop-zone" id="drop-zone">
+          <input id="audio-file" type="file" accept=".mp3,.mp4,.mpeg,.mpga,.m4a,.wav,.webm,.ogg,.flac,audio/*" required>
+          <div class="drop-zone-empty" id="drop-zone-empty">
+            <div class="drop-zone-icon-wrap" aria-hidden="true">
+              <svg class="drop-zone-icon" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <path d="M9 18V5l12-2v13"/>
+                <circle cx="6" cy="18" r="3"/>
+                <circle cx="18" cy="16" r="3"/>
+              </svg>
+            </div>
+            <span class="drop-zone-label">Drop your audio here</span>
+            <span class="drop-zone-label-sub">or <span class="drop-zone-browse">browse files</span></span>
+            <span class="drop-zone-hint">MP3 · WAV · M4A · FLAC · up to 100 MB</span>
+          </div>
+          <div class="drop-zone-selected hidden" id="drop-zone-selected">
+            <div class="drop-zone-icon-wrap is-selected" aria-hidden="true">
+              <svg class="drop-zone-icon" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                <path d="M9 18V5l12-2v13"/>
+                <circle cx="6" cy="18" r="3"/>
+                <circle cx="18" cy="16" r="3"/>
+              </svg>
+            </div>
+            <div class="drop-zone-file-info">
+              <span id="selected-filename" class="selected-filename"></span>
+              <span id="selected-meta" class="drop-zone-hint"></span>
+            </div>
+            <button type="button" id="clear-file-btn" class="btn-clear" aria-label="Remove file">×</button>
+          </div>
+        </div>
+
+        <button id="submit-btn" type="submit" class="btn btn-primary">
+          <span id="submit-label">Transcribe</span>
+        </button>
+      </form>
+
+      <div id="progress-panel" class="progress-panel hidden" aria-live="polite">
+        <div class="progress-file">
+          <span id="progress-filename" class="progress-filename"></span>
+          <span id="progress-meta" class="progress-meta"></span>
+        </div>
+        <ol class="progress-steps" id="progress-steps">
+          <li data-step="prepare" data-state="pending">
+            <span class="step-indicator" aria-hidden="true"></span>
+            <span class="step-label">Preparing file</span>
+            <span class="step-time"></span>
+          </li>
+          <li data-step="upload" data-state="pending">
+            <span class="step-indicator" aria-hidden="true"></span>
+            <span class="step-label">Uploading</span>
+            <span class="step-time"></span>
+          </li>
+          <li data-step="transcribe" data-state="pending">
+            <span class="step-indicator" aria-hidden="true"></span>
+            <span class="step-label">Transcribing with Whisper</span>
+            <span class="step-time"></span>
+          </li>
+          <li data-step="format" data-state="pending">
+            <span class="step-indicator" aria-hidden="true"></span>
+            <span class="step-label">Formatting timestamps</span>
+            <span class="step-time"></span>
+          </li>
+        </ol>
+        <div class="progress-bar-track" aria-hidden="true">
+          <div class="progress-bar-fill" id="progress-bar-fill"></div>
+        </div>
+        <p class="progress-elapsed" id="progress-elapsed"></p>
+      </div>
+
+      <div id="success-strip" class="success-strip hidden" aria-live="polite">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" aria-hidden="true">
+          <path d="M20 6L9 17l-5-5"/>
+        </svg>
+        <span id="success-message"></span>
+      </div>
+
+      <p id="status" class="status" aria-live="polite"></p>
+    </section>
+
+    <section class="card card-result hidden result-reveal" id="result-card">
+      <div class="card-header">
+        <h2>Transcript</h2>
+        <div class="actions actions-download">
+          <button id="download-txt-btn" type="button" class="btn btn-secondary">TXT</button>
+          <button id="download-json-btn" type="button" class="btn btn-secondary">JSON</button>
+          <button id="download-md-btn" type="button" class="btn btn-secondary">Markdown</button>
+        </div>
+      </div>
+      <textarea id="result-text" readonly rows="16"></textarea>
+      <div class="result-footer">
+        <button id="copy-btn" type="button" class="btn btn-secondary btn-copy">Copy text</button>
+      </div>
+    </section>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
