@@ -1,5 +1,7 @@
 # Groq Transcriber
 
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-FFDD00?style=flat-square&logo=buy-me-a-coffee&logoColor=black)](https://buymeacoffee.com/jacobbd)
+
 A lightweight web app for transcribing audio with [Groq](https://groq.com) Whisper models. Upload a file, pick a model and timestamp detail level, and download the result as plain text, JSON, or Markdown.
 
 ## Features
