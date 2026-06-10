@@ -128,6 +128,22 @@ body {
   font-size: 1.625rem;
   font-weight: 700;
   letter-spacing: -0.02em;
+  display: flex;
+  align-items: center;
+}
+
+.version-badge {
+  font-size: 0.6875rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 6px;
+  background: color-mix(in oklch, var(--primary) 10%, transparent);
+  color: var(--primary);
+  margin-left: 0.55rem;
+  vertical-align: middle;
+  border: 1px solid color-mix(in oklch, var(--primary) 20%, transparent);
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .site-header p {

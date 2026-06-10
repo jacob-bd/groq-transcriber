@@ -32,6 +32,8 @@ const progressElapsed = document.getElementById("progress-elapsed");
 const successStrip = document.getElementById("success-strip");
 const successMessage = document.getElementById("success-message");
 const themeToggle = document.getElementById("theme-toggle");
+const appVersion = document.getElementById("app-version");
+
 
 const STEPS = ["prepare", "upload", "transcribe", "format"];
 const THEME_KEY = "transcriber-theme";
@@ -403,6 +405,11 @@ async function loadDetailLevels() {
 async function loadSettings() {
   const response = await fetch("/api/settings");
   const data = await response.json();
+
+  if (data.version) {
+    appVersion.textContent = `v${data.version}`;
+    appVersion.classList.remove("hidden");
+  }
 
   if (data.configured) {
     keyStatus.textContent = "Configured";

@@ -21,6 +21,7 @@ class ApiKeyRequest(BaseModel):
 class SettingsResponse(BaseModel):
     configured: bool
     masked_key: str | None = None
+    version: str | None = None
 
 
 @app.get("/")
@@ -42,8 +43,8 @@ async def list_detail_levels() -> dict:
 async def get_settings() -> SettingsResponse:
     api_key = load_api_key()
     if not api_key:
-        return SettingsResponse(configured=False)
-    return SettingsResponse(configured=True, masked_key=mask_api_key(api_key))
+        return SettingsResponse(configured=False, version=app.version)
+    return SettingsResponse(configured=True, masked_key=mask_api_key(api_key), version=app.version)
 
 
 @app.post("/api/settings", response_model=SettingsResponse)
@@ -52,7 +53,7 @@ async def update_settings(body: ApiKeyRequest) -> SettingsResponse:
     if not api_key:
         raise HTTPException(status_code=400, detail="API key cannot be empty.")
     save_api_key(api_key)
-    return SettingsResponse(configured=True, masked_key=mask_api_key(api_key))
+    return SettingsResponse(configured=True, masked_key=mask_api_key(api_key), version=app.version)
 
 
 @app.post("/api/transcribe")
