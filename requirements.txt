@@ -2,3 +2,6 @@ fastapi==0.115.6
 uvicorn[standard]==0.34.0
 python-multipart==0.0.20
 groq==0.15.0
+pydub==0.25.1
+audioop-lts; python_version >= '3.13'
+

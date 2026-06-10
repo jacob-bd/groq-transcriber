@@ -1,4 +1,7 @@
 from groq import Groq
+import io
+import os
+from pydub import AudioSegment
 
 from app.detail_levels import DEFAULT_DETAIL_LEVEL, DETAIL_LEVELS, build_detail_blocks
 from app.models import DEFAULT_MODEL_ID, calculate_transcription_cost
@@ -146,6 +149,53 @@ def build_export_json(
     }
 
 
+def chunk_audio(
+    file_bytes: bytes,
+    filename: str,
+    max_chunk_size_bytes: int = 24 * 1024 * 1024,
+) -> list[dict]:
+    # Determine the audio format from the extension
+    _, ext = os.path.splitext(filename)
+    format_name = ext.lstrip(".").lower()
+    if not format_name:
+        format_name = "mp3"  # Fallback to mp3 if no extension is found
+
+    # Load audio into memory
+    audio = AudioSegment.from_file(io.BytesIO(file_bytes), format=format_name)
+    duration_ms = len(audio)
+
+    # Start with 10-minute chunks (600,000 milliseconds)
+    chunk_duration_ms = 600_000
+    chunks = []
+    start_ms = 0
+
+    while start_ms < duration_ms:
+        end_ms = min(start_ms + chunk_duration_ms, duration_ms)
+
+        while True:
+            chunk = audio[start_ms:end_ms]
+            buffer = io.BytesIO()
+            chunk.export(buffer, format=format_name)
+            chunk_bytes = buffer.getvalue()
+
+            # Verify that the exported chunk size is within the allowed limit.
+            # If not, halve the duration (down to a minimum of 10 seconds) and try again.
+            if len(chunk_bytes) <= max_chunk_size_bytes or chunk_duration_ms <= 10_000:
+                chunks.append({
+                    "bytes": chunk_bytes,
+                    "offset_seconds": start_ms / 1000.0,
+                    "duration_seconds": (end_ms - start_ms) / 1000.0,
+                })
+                break
+            else:
+                chunk_duration_ms = max(chunk_duration_ms // 2, 10_000)
+                end_ms = min(start_ms + chunk_duration_ms, duration_ms)
+
+        start_ms = end_ms
+
+    return chunks
+
+
 def transcribe_file(
     api_key: str,
     file_bytes: bytes,
@@ -154,15 +204,80 @@ def transcribe_file(
     detail_level: str = DEFAULT_DETAIL_LEVEL,
 ) -> dict:
     client = Groq(api_key=api_key)
-    transcription = client.audio.transcriptions.create(
-        file=(filename, file_bytes),
-        model=model,
-        response_format="verbose_json",
-        timestamp_granularities=["segment"],
-        temperature=0.0,
-    )
 
-    payload = normalize_payload(transcription)
+    # Check if the file fits within the Groq API limit (24 MB to be safe)
+    if len(file_bytes) <= 24 * 1024 * 1024:
+        # Single file upload
+        transcription = client.audio.transcriptions.create(
+            file=(filename, file_bytes),
+            model=model,
+            response_format="verbose_json",
+            timestamp_granularities=["segment"],
+            temperature=0.0,
+        )
+        payload = normalize_payload(transcription)
+    else:
+        # Split file into chunks
+        chunks = chunk_audio(file_bytes, filename)
+
+        all_texts = []
+        all_segments = []
+        total_duration = 0.0
+        detected_language = None
+
+        for index, chunk in enumerate(chunks):
+            # Send chunk bytes to Groq
+            chunk_filename = f"chunk_{index}_{filename}"
+
+            transcription = client.audio.transcriptions.create(
+                file=(chunk_filename, chunk["bytes"]),
+                model=model,
+                response_format="verbose_json",
+                timestamp_granularities=["segment"],
+                temperature=0.0,
+            )
+
+            chunk_payload = normalize_payload(transcription)
+
+            # Save language of first chunk
+            if index == 0:
+                detected_language = chunk_payload.get("language")
+
+            chunk_text = chunk_payload.get("text", "").strip()
+            if chunk_text:
+                all_texts.append(chunk_text)
+
+            # Adjust segment timestamps by the offset of the chunk
+            offset = chunk["offset_seconds"]
+            chunk_segments = chunk_payload.get("segments") or []
+            for segment in chunk_segments:
+                adjusted_segment = dict(segment)
+                if "start" in adjusted_segment:
+                    adjusted_segment["start"] = float(adjusted_segment["start"]) + offset
+                if "end" in adjusted_segment:
+                    adjusted_segment["end"] = float(adjusted_segment["end"]) + offset
+                # If there are word-level timestamps (words array), adjust those too
+                if "words" in adjusted_segment and isinstance(adjusted_segment["words"], list):
+                    adjusted_words = []
+                    for word_obj in adjusted_segment["words"]:
+                        adjusted_word = dict(word_obj)
+                        if "start" in adjusted_word:
+                            adjusted_word["start"] = float(adjusted_word["start"]) + offset
+                        if "end" in adjusted_word:
+                            adjusted_word["end"] = float(adjusted_word["end"]) + offset
+                        adjusted_words.append(adjusted_word)
+                    adjusted_segment["words"] = adjusted_words
+                all_segments.append(adjusted_segment)
+
+            total_duration += chunk["duration_seconds"]
+
+        payload = {
+            "text": " ".join(all_texts),
+            "segments": all_segments,
+            "duration": total_duration,
+            "language": detected_language,
+        }
+
     duration_seconds = get_audio_duration(payload)
     cost = calculate_transcription_cost(duration_seconds, model)
     blocks = build_detail_blocks(payload, detail_level)

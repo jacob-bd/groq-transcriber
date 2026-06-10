@@ -8,7 +8,7 @@ from app.detail_levels import DEFAULT_DETAIL_LEVEL, DETAIL_LEVELS, is_valid_deta
 from app.models import DEFAULT_MODEL_ID, TRANSCRIPTION_MODELS, is_valid_model_id
 from app.transcription import transcribe_file
 
-app = FastAPI(title="Groq Transcriber")
+app = FastAPI(title="Groq Transcriber", version="1.0.1")
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 MAX_FILE_SIZE = 100 * 1024 * 1024
