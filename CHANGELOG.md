@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Automatic audio chunking for files larger than 24 MB (up to 100 MB limit).
 - In-memory audio segmenting using `pydub` and `ffmpeg`.
 - Conditional package dependency `audioop-lts` for Python 3.13+ compatibility.
+- App version display badge in the header next to the title.
 
 ### Fixed
 - Request Entity Too Large (413) error from Groq API when uploading audio files larger than 25 MB.
